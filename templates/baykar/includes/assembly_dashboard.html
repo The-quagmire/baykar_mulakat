@@ -1,0 +1,79 @@
+
+<div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4>Montaj Takımı İşlemleri</h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col">
+                        <a href="{% url 'assemble_aircraft' %}" class="btn btn-success">Yeni Uçak Montajı</a>
+                    </div>
+                </div>
+        
+                <h5 class="mt-4">Üretilmiş Uçaklar</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Uçak Adı</th>
+                                <th>Uçak Tipi</th>
+                                <th>Montaj Tarihi</th>
+                                <th>Kullanılan Parçalar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for aircraft in produced_aircraft %}
+                            <tr>
+                                <td>{{ aircraft.name }}</td>
+                                <td>{{ aircraft.get_aircraft_type_display }}</td>
+                                <td>{{ aircraft.assembly_date|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#partsModal{{ aircraft.id }}">
+                                        Parçaları Görüntüle
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Henüz üretilmiş uçak bulunmamaktadır.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Parça Detay Modalları -->
+        {% for aircraft in produced_aircraft %}
+        <div class="modal fade" id="partsModal{{ aircraft.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ aircraft.name }} Parça Detayları</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Kanat:</strong> {{ aircraft.wing.name }}
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Gövde:</strong> {{ aircraft.body.name }}
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Kuyruk:</strong> {{ aircraft.tail.name }}
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Aviyonik:</strong> {{ aircraft.avionics.name }}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+

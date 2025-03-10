@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <h2>Hoş Geldiniz, {{ user.first_name }}</h2>
+            <p>Takım: {% if personnel.team %}{{ personnel.team.name }} ({{ personnel.team.get_team_type_display }}){% else %}Henüz bir takıma atanmadınız{% endif %}</p>
+        </div>
+    </div>
+
+    {% if personnel.team %}
+        {% if personnel.team.team_type == 'ASSEMBLY' %}
+            {% include 'baykar/includes/assembly_dashboard.html' %}
+        {% else %}
+            {% include 'baykar/includes/team_dashboard.html' %}
+        {% endif %}
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}        
+        {% block content %}
+        <div class="container">
+            <h2 class="mb-4">Parça Üretimi</h2>
+        
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4>{{ team.get_team_type_display }} - Yeni Parça Üretimi</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+        
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">Parça Adı:</label>
+                            {{ form.name|add_class:"form-control" }}
+                            <div class="text-danger">{{ form.name.errors }}</div>
+                        </div>
+        
+                        <div class="mb-3">
+                            <label for="{{ form.part_type.id_for_label }}" class="form-label">Parça Türü:</label>
+                            {{ form.part_type|add_class:"form-control" }}
+                            <div class="text-danger">{{ form.part_type.errors }}</div>
+                        </div>
+        
+                        <div class="mb-3">
+                            <label for="{{ form.aircraft_type.id_for_label }}" class="form-label">Uyumlu Uçak:</label>
+                            {{ form.aircraft_type|add_class:"form-control" }}
+                            <div class="text-danger">{{ form.aircraft_type.errors }}</div>
+                        </div>
+        
+                        <button type="submit" class="btn btn-primary">Parçayı Üret</button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">İptal</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
