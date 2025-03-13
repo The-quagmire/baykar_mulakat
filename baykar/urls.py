@@ -32,6 +32,7 @@ schema_view = get_schema_view(
 
 # Web UI URL'leri
 web_ui_patterns = [
+    path('', views.dashboard, name='dashboard'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('register/', views.register, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='baykar/login.html'), name='login'),
@@ -41,7 +42,6 @@ web_ui_patterns = [
     path('produce-part/', views.produce_part, name='produce_part'),
     path('recycle-part/<int:part_id>/', views.recycle_part, name='recycle_part'),
     path('assemble-aircraft/', views.assemble_aircraft, name='assemble_aircraft'),
-    # Ajax çağrısını tut, ama API sürümünü de ekle
     path('api/get-compatible-parts/', views.get_compatible_parts, name='get_compatible_parts'),
 ]
 
@@ -50,6 +50,8 @@ api_patterns = [
     path('', include(router.urls)),
     path('compatible-parts/', get_compatible_parts_api, name='api-compatible-parts'),
     path('auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('check-session/', views.check_session, name='check_session'),
+
 ]
 
 # Swagger URL'leri

@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login,logout
+from django.contrib.auth.views import LogoutView
 from django.http import JsonResponse
 from .models import Team, Personnel, Part, Aircraft, PartType, AircraftType
 from .forms import UserRegisterForm, PersonnelForm, PartForm, AircraftAssemblyForm
@@ -25,6 +26,12 @@ def register(request):
         personnel_form = PersonnelForm()
 
     return render(request, 'baykar/register.html', {'user_form': user_form, 'personnel_form': personnel_form})
+
+def check_session(request):
+    return JsonResponse({
+        'is_authenticated': request.user.is_authenticated,
+        'username': request.user.username if request.user.is_authenticated else None
+    })
 
 @login_required
 def dashboard(request):
@@ -232,3 +239,15 @@ def get_compatible_parts(request):
     }
 
     return JsonResponse(response)
+
+# Özelleştirilmiş logout view
+class CustomLogoutView(LogoutView):
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        # Tüm oturum verilerini temizle
+        request.session.flush()
+        # Tarayıcı önbelleğinin yenilenmesini sağlayalım
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response

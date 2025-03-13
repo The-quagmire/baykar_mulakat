@@ -1,18 +1,182 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-md-12 mb-4">
-            <h2>Hoş Geldiniz, {{ user.first_name }}</h2>
-            <p>Takım: {% if personnel.team %}{{ personnel.team.name }} ({{ personnel.team.get_team_type_display }}){% else %}Henüz bir takıma atanmadınız{% endif %}</p>
+<div class="container mt-4">
+    <h2>Dashboard</h2>
+
+    <!-- CSRF token eklendi -->
+    {% csrf_token %}
+
+    <div id="auth-check">
+        <!-- Kimlik doğrulama kontrolü yapılacak -->
+    </div>
+
+    <div id="dashboard-content">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Yükleniyor...</span>
         </div>
     </div>
 
-    {% if personnel.team %}
-        {% if personnel.team.team_type == 'ASSEMBLY' %}
-            {% include 'baykar/includes/assembly_dashboard.html' %}
-        {% else %}
-            {% include 'baykar/includes/team_dashboard.html' %}
-        {% endif %}
+    <!-- Role göre butonları ekleyeceğimiz bölüm -->
+    <div id="role-actions" class="mt-4"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'baykar/js/api_client.js' %}"></script>
+<script>
+
+window.addEventListener('pageshow', function(event) {
+    // Sayfa önbellekten geliyorsa sayfayı yenile
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+// Mevcut kullanıcı bilgilerini şablondan al
+//console.log("Mevcut kullanıcı bilgileri:", "{{ request.user.username }}", "{{ request.user.personnel.team_id }}");
+const currentUser = {
+    username: "{{ request.user.username|default:'' }}",
+    is_authenticated: {% if request.user.is_authenticated %}true{% else %}false{% endif %},
+    {% if request.user.is_authenticated and request.user.personnel %}
+    personnel: {
+        id: {{ request.user.personnel.id }},
+        name: "{{ request.user.personnel.name }}",
+        team_id: {{ request.user.personnel.team_id|default:"null" }}
+    }
+    {% else %}
+    personnel: null
     {% endif %}
+};
+
+document.addEventListener('DOMContentLoaded', async function() {
+    const authCheck = document.getElementById('auth-check');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const roleActions = document.getElementById('role-actions');
+
+    if (!currentUser.is_authenticated) {
+        authCheck.innerHTML = `
+            <div class="alert alert-warning">
+                Oturumunuz kapalı veya sona ermiş. Lütfen <a href="/login" class="alert-link">giriş yapın</a>.
+            </div>
+        `;
+        dashboardContent.style.display = 'none';
+        roleActions.style.display = 'none';
+        return;
+    }
+
+    try {
+        const checkSession = await fetch('/api/v1/check-session/');
+        const sessionStatus = await checkSession.json();
+
+        if (!sessionStatus.is_authenticated) {
+            authCheck.innerHTML = `
+                <div class="alert alert-warning">
+                    Oturumunuz sona ermiş. Lütfen <a href="/login" class="alert-link">tekrar giriş yapın</a>.
+                </div>
+            `;
+            dashboardContent.style.display = 'none';
+            roleActions.style.display = 'none';
+            return;
+        }
+        // Takımları yükle
+        const teams = await TeamApi.getAll();
+
+        // Personeli yükle
+        const personnel = await PersonnelApi.getAll();
+
+        // Parçaları yükle
+        const parts = await PartApi.getAll();
+
+        // Uçakları yükle
+        const aircraft = await AircraftApi.getAll();
+
+        // Dashboard içeriğini oluştur
+        let html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">Takım Bilgisi</div>
+                        <div class="card-body">
+                            <p>Toplam Takım: ${teams.length}</p>
+                            <ul>
+                                ${teams.map(team => `<li>${team.team_type}: ${team.name}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">Personel Bilgisi</div>
+                        <div class="card-body">
+                            <p>Toplam Personel: ${personnel.length}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">Parça Envanteri</div>
+                        <div class="card-body">
+                            <p>Toplam Parça: ${parts.length}</p>
+                            <p>Kullanılmamış Parçalar: ${parts.filter(p => !p.is_used).length}</p>
+                            <h6 class="mt-3">Uçak Tipine Göre Parçalar:</h6>
+                            <ul>
+                                ${Array.from(new Set(parts.map(p => p.aircraft_type)))
+                                    .map(type => `<li>${type}: ${parts.filter(p => p.aircraft_type === type).length}</li>`)
+                                    .join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">Uçak Bilgisi</div>
+                        <div class="card-body">
+                            <p>Toplam Uçak: ${aircraft.length}</p>
+                            <h6 class="mt-3">Uçak Tipine Göre:</h6>
+                            <ul>
+                                ${Array.from(new Set(aircraft.map(a => a.aircraft_type)))
+                                    .map(type => `<li>${type}: ${aircraft.filter(a => a.aircraft_type === type).length}</li>`)
+                                    .join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        dashboardContent.innerHTML = html;
+
+        // Kullanıcının rolüne göre butonları ekle
+        if (currentUser && currentUser.personnel) {
+            const userRole = currentUser.personnel.team_id;
+
+            // Role göre butonları oluştur
+            let roleHtml = '<div class="card"><div class="card-header">Eylemler</div><div class="card-body">';
+
+            if (userRole === 5) {
+                roleHtml += `<a href="/assemble-aircraft" class="btn btn-success me-2">Uçak Birleştir</a>`;
+            } else if (userRole === 0 || userRole === 'MANAGER') {
+                roleHtml += `
+                    <a href="/produce-part" class="btn btn-primary me-2">Parça Üret</a>
+                    <a href="/assemble-aircraft" class="btn btn-success me-2">Uçak Birleştir</a>
+                `;
+            } else {
+                roleHtml += `<a href="/produce-part" class="btn btn-primary me-2">Parça Üret</a>`;
+            }
+
+            roleHtml += '</div></div>';
+            roleActions.innerHTML = roleHtml;
+        }
+    } catch (error) {
+        dashboardContent.innerHTML = `<div class="alert alert-danger">Hata: ${error.message}</div>`;
+        console.error("API hatası:", error);
+    }
+});
+</script>
 {% endblock %}

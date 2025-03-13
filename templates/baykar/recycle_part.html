@@ -1,0 +1,127 @@
+<!-- templates/baykar/recycle_part.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Parça Geri Dönüşümü</h2>
+    
+    <div class="mb-3">
+        <label for="filter_type" class="form-label">Filtre:</label>
+        <select class="form-control" id="filter_type">
+            <option value="">Tümü</option>
+            <option value="WING">Kanat</option>
+            <option value="BODY">Gövde</option>
+            <option value="TAIL">Kuyruk</option>
+            <option value="AVIONICS">Aviyonik</option>
+        </select>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ad</th>
+                    <th>Parça Tipi</th>
+                    <th>Uçak Tipi</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="parts-table-body">
+                <tr>
+                    <td colspan="5" class="text-center">Yükleniyor...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div id="result-area" class="mt-4"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'baykar/js/api_client.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterTypeSelect = document.getElementById('filter_type');
+    const partsTableBody = document.getElementById('parts-table-body');
+    const resultArea = document.getElementById('result-area');
+    
+    // Parçaları yükle
+    async function loadParts(filter = '') {
+        try {
+            partsTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Yükleniyor...</td></tr>';
+            
+            const filters = {};
+            if (filter) {
+                filters.part_type = filter;
+            }
+            
+            filters.is_used = false; // Sadece kullanılmamış parçaları göster
+            
+            const parts = await PartApi.getAll(filters);
+            
+            if (parts.length === 0) {
+                partsTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Parça bulunamadı</td></tr>';
+                return;
+            }
+            
+            partsTableBody.innerHTML = parts.map(part => `
+                <tr>
+                    <td>${part.id}</td>
+                    <td>${part.name}</td>
+                    <td>${part.part_type}</td>
+                    <td>${part.aircraft_type}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm recycle-btn" data-id="${part.id}">
+                            Geri Dönüşüme Gönder
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+            
+            // Geri dönüşüm butonlarına olay dinleyici ekle
+            document.querySelectorAll('.recycle-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const partId = this.getAttribute('data-id');
+                    await recyclePart(partId);
+                });
+            });
+            
+        } catch (error) {
+            partsTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Hata: ${error.message}</td></tr>`;
+        }
+    }
+    
+    // Parça geri dönüşümü
+    async function recyclePart(partId) {
+        try {
+            resultArea.innerHTML = '<div class="spinner-border" role="status"><span class="visually-hidden">Yükleniyor...</span></div>';
+            
+            await PartApi.delete(partId);
+            
+            resultArea.innerHTML = `
+                <div class="alert alert-success">
+                    Parça başarıyla geri dönüşüme gönderildi (ID: ${partId}).
+                </div>
+            `;
+            
+            // Parçaları yeniden yükle
+            await loadParts(filterTypeSelect.value);
+            
+        } catch (error) {
+            resultArea.innerHTML = `<div class="alert alert-danger">Hata: ${error.message}</div>`;
+        }
+    }
+    
+    // Filtre değiştiğinde parçaları yeniden yükle
+    filterTypeSelect.addEventListener('change', function() {
+        loadParts(this.value);
+    });
+    
+    // Sayfa yüklendiğinde parçaları yükle
+    loadParts();
+});
+</script>
+{% endblock %}

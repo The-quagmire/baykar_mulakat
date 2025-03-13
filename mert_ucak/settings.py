@@ -55,6 +55,10 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'mert_ucak.urls'
 
+STATICFILES_DIRS = [
+    BASE_DIR / "baykar/static",
+]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

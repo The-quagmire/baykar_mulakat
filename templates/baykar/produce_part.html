@@ -1,39 +1,126 @@
-{% extends 'base.html' %}
-{% load widget_tweaks %}        
-        {% block content %}
-        <div class="container">
-            <h2 class="mb-4">Parça Üretimi</h2>
-        
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h4>{{ team.get_team_type_display }} - Yeni Parça Üretimi</h4>
-                </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-        
-                        <div class="mb-3">
-                            <label for="{{ form.name.id_for_label }}" class="form-label">Parça Adı:</label>
-                            {{ form.name|add_class:"form-control" }}
-                            <div class="text-danger">{{ form.name.errors }}</div>
-                        </div>
-        
-                        <div class="mb-3">
-                            <label for="{{ form.part_type.id_for_label }}" class="form-label">Parça Türü:</label>
-                            {{ form.part_type|add_class:"form-control" }}
-                            <div class="text-danger">{{ form.part_type.errors }}</div>
-                        </div>
-        
-                        <div class="mb-3">
-                            <label for="{{ form.aircraft_type.id_for_label }}" class="form-label">Uyumlu Uçak:</label>
-                            {{ form.aircraft_type|add_class:"form-control" }}
-                            <div class="text-danger">{{ form.aircraft_type.errors }}</div>
-                        </div>
-        
-                        <button type="submit" class="btn btn-primary">Parçayı Üret</button>
-                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">İptal</a>
-                    </form>
-                </div>
-            </div>
+<!-- templates/baykar/produce_part.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Parça Üretimi</h2>
+    
+    <form id="part-form" class="mt-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="part_type" class="form-label">Parça Tipi</label>
+            <select class="form-control" id="part_type" name="part_type" required>
+                <option value="">Seçiniz</option>
+                <option value="WING">Kanat</option>
+                <option value="BODY">Gövde</option>
+                <option value="TAIL">Kuyruk</option>
+                <option value="AVIONICS">Aviyonik</option>
+            </select>
         </div>
-        {% endblock %}
+        
+        <div class="mb-3">
+            <label for="aircraft_type" class="form-label">Uçak Tipi</label>
+            <select class="form-control" id="aircraft_type" name="aircraft_type" required>
+                <option value="">Seçiniz</option>
+                <option value="TB2">TB2</option>
+                <option value="TB3">TB3</option>
+                <option value="AKINCI">AKINCI</option>
+                <option value="KIZILELMA">KIZILELMA</option>
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <label for="name" class="form-label">Parça Adı</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Parça Üret</button>
+    </form>
+    
+    <div id="result-area" class="mt-4"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'baykar/js/api_client.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const partForm = document.getElementById('part-form');
+    const resultArea = document.getElementById('result-area');
+    
+    partForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            part_type: document.getElementById('part_type').value,
+            aircraft_type: document.getElementById('aircraft_type').value,
+            name: document.getElementById('name').value
+        };
+        
+        try {
+            resultArea.innerHTML = '<div class="spinner-border" role="status"><span class="visually-hidden">Yükleniyor...</span></div>';
+            
+            const result = await PartApi.create(formData);
+            
+            resultArea.innerHTML = `
+                <div class="alert alert-success">
+                    <h4>Parça başarıyla üretildi!</h4>
+                    <p>Parça ID: ${result.id}</p>
+                    <p>Parça: ${result.name}</p>
+                    <p>Parça Tipi: ${result.part_type}</p>
+                    <p>Uçak Tipi: ${result.aircraft_type}</p>
+                </div>
+            `;
+            
+            // Formu temizle
+            partForm.reset();
+            
+        } catch (error) {
+            resultArea.innerHTML = `<div class="alert alert-danger">Hata: ${error.message}</div>`;
+        }
+    });
+    
+    // Kullanıcının takım türüne göre UI güncelleme
+    async function updatePartTypeOptions() {
+        try {
+            const personnelData = await PersonnelApi.getAll();
+            const userPersonnel = personnelData[0]; // Kullanıcının personel bilgisi
+            
+            if (userPersonnel && userPersonnel.team) {
+                const teamDetail = await TeamApi.getDetail(userPersonnel.team);
+                
+                // Takım türüne göre parça tipi seçimini kısıtla
+                const partTypeSelect = document.getElementById('part_type');
+                
+                if (teamDetail.team_type !== 'ASSEMBLY') {
+                    const teamTypeToPartType = {
+                        'WING': 'WING',
+                        'BODY': 'BODY',
+                        'TAIL': 'TAIL',
+                        'AVIONICS': 'AVIONICS'
+                    };
+                    
+                    const allowedPartType = teamTypeToPartType[teamDetail.team_type];
+                    
+                    // Sadece izin verilen parça tipini aktif et
+                    Array.from(partTypeSelect.options).forEach(option => {
+                        if (option.value !== '' && option.value !== allowedPartType) {
+                            option.disabled = true;
+                        }
+                    });
+                    
+                    // Otomatik olarak bu parça tipini seç
+                    partTypeSelect.value = allowedPartType;
+                }
+            }
+        } catch (error) {
+            console.error('Takım bilgisi alınamadı:', error);
+        }
+    }
+    
+    // Sayfa yüklendiğinde takım bilgilerine göre UI'ı güncelle
+    updatePartTypeOptions();
+});
+</script>
+{% endblock %}
